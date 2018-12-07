@@ -15,6 +15,10 @@ namespace think;
 
 use think\exception\ValidateException;
 
+header("Access-Control-Allow-Origin:*");
+header("Access-Control-Allow-Headers:x-token,x-uid,x-token-check,x-requested-with,content-type,Host,version,token,authorization,timeStamp,randomStr,signature");
+header("Access-Control-Allow-Credentials:true");
+
 class Controller
 {
     use \traits\controller\Jump;

@@ -7,12 +7,12 @@
  */
 namespace app\services;
 
-use app\admin\controller\Common;
+use app\common\controller\BaseController;
 use think\Cache;
-use think\Controller;
+use think\Exception;
 use think\Log;
 
-class Sms extends Controller
+class Sms extends BaseController
 {
     /**
      * 发送验证码
@@ -22,11 +22,8 @@ class Sms extends Controller
      */
     public function sendVerifyCode($phone,$scene = "")
     {
-
-        $common = new Common();
-
         if (empty($phone)){
-            return $common->com_return(false,config("params.PARAM_NOT_EMPTY"));
+            return $this->com_return(false,config("params.PARAM_NOT_EMPTY"));
         }
 
         /*$cache_code = Cache::get("sms_verify_code_" . $phone);
@@ -35,37 +32,35 @@ class Sms extends Controller
             return $common->com_return(false,config("sms.send_repeat"));
         }*/
 
-        //获取随机验证码
-        $code = getRandCode(4);
-
-        if ($scene == "managePointList"){
-            //管理端点单
-            $message = config('sms.point_list').config('sms.sign');
-
-        }else{
-            $message = config('sms.sms_verify_code').config('sms.sign');
-        }
-
-
-        $sms = new LuoSiMaoSms();
-
-        $res = $sms->send($phone, str_replace('%code%', $code, $message));
-
-        if ($res){
-            if (isset($res['error']) && $res['error'] == 0){
-                //缓存验证码
-                Cache::set("sms_verify_code_" . $phone, $code, 300);
-                return $common->com_return(true, config("sms.send_success"));
+        try {
+            //获取随机验证码
+            $code = getRandCode(4);
+            if ($scene == "managePointList"){
+                //管理端点单
+                $message = config('sms.point_list').config('sms.sign');
             }else{
-                if ($res['error'] == "-42") {
-                    $message = "验证码发送频率过快,请稍后重发";
-                }else{
-                    $message = $res['msg'];
-                }
-                return $common->com_return(false, $message);
+                $message = config('sms.sms_verify_code').config('sms.sign');
             }
-        }else{
-            return $common->com_return(false, config("sms.send_fail"));
+            $sms = new LuoSiMaoSms();
+            $res = $sms->send($phone, str_replace('%code%', $code, $message));
+            if ($res){
+                if (isset($res['error']) && $res['error'] == 0){
+                    //缓存验证码
+                    Cache::set("sms_verify_code_" . $phone, $code, 300);
+                    return $this->com_return(true, config("sms.send_success"));
+                }else{
+                    if ($res['error'] == "-42") {
+                        $message = "验证码发送频率过快,请稍后重发";
+                    }else{
+                        $message = $res['msg'];
+                    }
+                    return $this->com_return(false, $message);
+                }
+            }else{
+                return $this->com_return(false, config("sms.send_fail"));
+            }
+        } catch (Exception $e) {
+            return $this->com_return(false, $e->getMessage(), null, 500);
         }
     }
 
@@ -76,31 +71,23 @@ class Sms extends Controller
      * */
     public function checkVerifyCode($phone,$code)
     {
-        $common = new Common();
-
         if (empty($phone) || empty($code)){
-
-            return $common->com_return(false, config("PARAM_NOT_EMPTY"));
-
+            return $this->com_return(false, config("PARAM_NOT_EMPTY"));
         }
-
-        $cache_code = Cache::get("sms_verify_code_" . $phone);
-
-        if ($cache_code == "old"){
-            return $common->com_return(true, config("sms.verify_success"));
-        }
-
-        if ($cache_code == $code) {
-
-            //如果验证成功,则删除缓存
-            Cache::rm("sms_verify_code_" . $phone);
-
-            return $common->com_return(true, config("sms.verify_success"));
-
-        }else{
-
-            return $common->com_return(false, config("sms.verify_fail"));
-
+        try {
+            $cache_code = Cache::get("sms_verify_code_" . $phone);
+            if ($cache_code == "old"){
+                return $this->com_return(true, config("sms.verify_success"));
+            }
+            if ($cache_code == $code) {
+                //如果验证成功,则删除缓存
+                Cache::rm("sms_verify_code_" . $phone);
+                return $this->com_return(true, config("sms.verify_success"));
+            }else{
+                return $this->com_return(false, config("sms.verify_fail"));
+            }
+        } catch (Exception $e) {
+            return $this->com_return(false, $e->getMessage(), null, 500);
         }
     }
 
@@ -125,12 +112,9 @@ class Sms extends Controller
         if (empty($phone)){
             return $this->com_return(false,config("params.PARAM_NOT_EMPTY"));
         }
-
         $sms = new LuoSiMaoSms();
-
         if ($type == "revenue"){
-
-            if ($reserve_way == config("order.reserve_way")['manage']['key']){
+            if ($reserve_way == config("order.reserve_way")['service']['key']){
                 //如果是营销预约
                 $message = config('sms.manage_revenue_send').config('sms.sign');
 //                $message = str_replace('%name%',$name,$message);

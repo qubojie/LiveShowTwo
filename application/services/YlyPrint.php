@@ -7,9 +7,9 @@
  */
 namespace app\services;
 
+use app\common\controller\BaseController;
 use app\wechat\controller\DishPublicAction;
 use think\Cache;
-use think\Controller;
 use think\Env;
 use think\Loader;
 
@@ -17,7 +17,7 @@ Loader::import('yly.YLYTokenClient');
 Loader::import('yly.YLYOpenApiClient');
 
 
-class YlyPrint extends Controller
+class YlyPrint extends BaseController
 {
     /**
      *获取token

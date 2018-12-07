@@ -77,6 +77,8 @@ class Validate
         'lt'          => ':attribute必须小于 :rule',
         'eq'          => ':attribute必须等于 :rule',
         'unique'      => ':attribute已存在',
+        'unique_me'   => ':attribute已存在',
+        'unique_delete'=> ':attribute已存在',
         'regex'       => ':attribute不符合指定规则',
         'method'      => '无效的请求类型',
         'token'       => '令牌数据无效',
@@ -844,6 +846,55 @@ class Validate
             return false;
         }
         return true;
+    }
+
+    /*
+     * 自创唯一性验证
+     * */
+    protected function unique_me($key_val,$table,$params,$key)
+    {
+        $tables = explode(",",$table);
+        $table_name = $tables[0];
+
+        if (isset($tables[1])){
+            $where_count[$tables[1]] = ['neq',$params[$tables[1]]];
+        }else{
+            $where_count = [];
+        }
+
+        $is_exist = Db::name($table_name)
+            ->where($key,$key_val)
+            ->where($where_count)
+            ->count();
+
+        if ($is_exist){
+            return false;
+        }else{
+            return true;
+        }
+    }
+
+
+    protected function unique_delete($key_val,$table,$params,$key)
+    {
+        $tables = explode(",",$table);
+
+        $table_name = $tables[0];
+        if (isset($tables[1])){
+            $where_count[$tables[1]] = ['neq',$params[$tables[1]]];
+        }else{
+            $where_count = [];
+        }
+        $is_exist = Db::name($table_name)
+            ->where($key,$key_val)
+            ->where("is_delete",'0')
+            ->where($where_count)
+            ->count();
+        if ($is_exist){
+            return false;
+        }else{
+            return true;
+        }
     }
 
     /**

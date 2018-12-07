@@ -7,14 +7,12 @@
  */
 namespace app\index\controller;
 
-use app\admin\model\TableRevenue;
-use app\wechat\controller\OpenCard;
-use app\wechat\model\BillCardFees;
-use app\wechat\model\BillPay;
-use app\wechat\model\BillPayAssist;
-use app\wechat\model\BillRefill;
-use app\wechat\model\BillSubscription;
-use app\wechat\model\TableMessage;
+use app\common\model\BillPay;
+use app\common\model\BillPayAssist;
+use app\common\model\BillRefill;
+use app\common\model\BillSubscription;
+use app\common\model\TableMessage;
+use app\common\model\TableRevenue;
 use think\Controller;
 use think\Db;
 use think\Exception;
@@ -31,8 +29,10 @@ class ChangeStatus extends Controller
      */
     public static function changeOrderStatus()
     {
-        $sale_status = config("order.open_card_status")['pending_payment']['key'];
-        $pay_type    = config("order.pay_method")['cash']['key'];
+//        $sale_status = config("order.open_card_status")['pending_payment']['key'];
+        $sale_status = '0';
+//        $pay_type    = config("order.pay_method")['cash']['key'];
+        $pay_type    = 'cash';
 
         $bill_list = Db::name('bill_card_fees')
             ->where('sale_status',$sale_status)
@@ -62,7 +62,7 @@ class ChangeStatus extends Controller
                         'updated_at' => $time
                     ];
 
-                    $billCardFeesModel = new BillCardFees();
+                    $billCardFeesModel = new \app\common\model\BillCardFees();
 
                     $is_ok = $billCardFeesModel
                         ->where('auto_cancel_time',$auto_cancel_time)
@@ -105,7 +105,7 @@ class ChangeStatus extends Controller
     {
         //查找已发货订单
         $bill_list = Db::name('bill_card_fees')
-            ->where('sale_status',config("order.open_card_status")['pending_receipt']['key'])
+            ->where('sale_status','2')
             ->select();
 
         try{
@@ -119,16 +119,16 @@ class ChangeStatus extends Controller
                 $time = time();
                 if ($auto_finish_time < $time ){
                     $params = [
-                        'sale_status' => config("order.open_card_status")['completed']['key'],
+                        'sale_status' => 3,
                         'finish_time' => $time,
                         'auto_finish' => 1,
                         'updated_at'  => $time,
                     ];
-                    $billCardFeesModel = new BillCardFees();
+                    $billCardFeesModel = new \app\common\model\BillCardFees();
 
                     $is_ok = $billCardFeesModel
                         ->where('auto_finish_time',$auto_finish_time)
-                        ->where('sale_status',config("order.open_card_status")['pending_receipt']['key'])
+                        ->where('sale_status','2')
                         ->update($params);
 
                 }else{
@@ -154,7 +154,7 @@ class ChangeStatus extends Controller
     {
         //查找未支付的订单
         $list = Db::name('table_revenue')
-            ->where('status',config("order.table_reserve_status")['pending_payment']['key'])
+            ->where('status','0')
             ->select();
 
         try{
@@ -164,9 +164,7 @@ class ChangeStatus extends Controller
             }
 
             //获取系统设置自动取消时间
-            $cardObj = new OpenCard();
-
-            $reserve_subscription_auto_time = $cardObj->getSysSettingInfo("reserve_subscription_auto_time");
+            $reserve_subscription_auto_time = getSysSetting("reserve_subscription_auto_time");
 
             $reserve_subscription_auto_time_s = $reserve_subscription_auto_time * 60;//自动取消等待秒数
 
@@ -174,7 +172,7 @@ class ChangeStatus extends Controller
             $now_time = time();//当前时间
 
             $table_params = [
-                "status"        => config("order.table_reserve_status")['cancel']['key'],
+                "status"        => 9,
                 "cancel_user"   => "sys",
                 "cancel_time"   => $now_time,
                 "cancel_reason" => "时限内未付款",
@@ -182,7 +180,7 @@ class ChangeStatus extends Controller
             ];
 
             $bill_params = [
-                "status" => config("order.reservation_subscription_status")['cancel']['key'],
+                "status" => 9,
                 "cancel_user" => "sys",
                 "cancel_time" => $now_time,
                 "auto_cancel" => 1,
@@ -238,27 +236,29 @@ class ChangeStatus extends Controller
     /**
      * 系统自动取消未支付充值单据
      * @return int|string
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
      */
     public static function AutoCancelBillRefill()
     {
         $now_time = time();//当前时间
 
         //获取系统设置自动取消时间
-        $cardObj = new OpenCard();
-
-        $reserve_subscription_auto_time   = $cardObj->getSysSettingInfo("reserve_subscription_auto_time");
+        $reserve_subscription_auto_time   = getSysSetting("reserve_subscription_auto_time");
 
         $reserve_subscription_auto_time_s = $reserve_subscription_auto_time * 60;//自动取消等待秒数
 
         $billRefillParams = [
-            "status"     => config("order.recharge_status")['cancel']['key'],
+            "status"     => 9,
             "updated_at" => $now_time
         ];
 
         $billRefillModel = new BillRefill();
 
         $list = $billRefillModel
-            ->where('status',config("order.recharge_status")['pending_payment']['key'])
+            ->where('pay_line_type',0)
+            ->where('status',0)
             ->where("created_at","lt",$now_time - $reserve_subscription_auto_time_s )
             ->update($billRefillParams);
 
@@ -270,18 +270,23 @@ class ChangeStatus extends Controller
 
     }
 
+    /**
+     * @return int|string
+     * @throws \think\db\exception\DataNotFoundException
+     * @throws \think\db\exception\ModelNotFoundException
+     * @throws \think\exception\DbException
+     */
     public static function autoCancelRevenueListOrder()
     {
         $now_time = time();
 
         //获取系统设置自动取消时间
-        $cardObj = new OpenCard();
-        $reserve_subscription_auto_time   = $cardObj->getSysSettingInfo("reserve_subscription_auto_time");
+        $reserve_subscription_auto_time   = getSysSetting("reserve_subscription_auto_time");
 
         $reserve_subscription_auto_time_s = $reserve_subscription_auto_time * 60;//自动取消等待秒数
 
         $billPayParams = [
-            "sale_status"      => config("order.bill_pay_sale_status")['cancel']['key'],
+            "sale_status"      => 9,
             "cancel_user"      => "sys",
             "cancel_time"      => $now_time,
             "auto_cancel"      => 1,
@@ -293,7 +298,7 @@ class ChangeStatus extends Controller
         $billPayModel = new BillPay();
 
         $list = $billPayModel
-            ->where('sale_status',config("order.bill_pay_sale_status")['pending_payment_return']['key'])
+            ->where('sale_status',1)
             ->where('type',config("order.bill_pay_type")['consumption']['key'])
             ->where("created_at","lt",$now_time - $reserve_subscription_auto_time_s )
             ->update($billPayParams);
@@ -335,7 +340,7 @@ class ChangeStatus extends Controller
         $auto_time_s = $now_time - 24 * 60 * 60;
 
         $billPayParams = [
-            'sale_status'      => config("bill_assist.bill_status")['9']['key'],
+            'sale_status'      => 9,
             'auto_cancel'      => 1,
             'auto_cancel_time' => $now_time,
             'cancel_reason'    => '时限内未操作',
@@ -343,7 +348,7 @@ class ChangeStatus extends Controller
         ];
 
         $res = $billPayAssistModel
-            ->where('sale_status',config("bill_assist.bill_status")['0']['key'])
+            ->where('sale_status',0)
             ->where("created_at","lt",$auto_time_s )
             ->update($billPayParams);
 

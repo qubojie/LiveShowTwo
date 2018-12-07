@@ -17,7 +17,7 @@ return [
     // 应用命名空间
     'app_namespace'          => 'app',
     // 应用调试模式
-    'app_debug'              => true,
+    'app_debug'              => \think\Env::get("APP_DEBUG"),
     // 应用Trace
     'app_trace'              => false,
     // 应用模式状态
@@ -236,4 +236,20 @@ return [
         'var_page'  => 'page',
         'list_rows' => 15,
     ],
+
+    /*
+   |--------------------------------------------------------------------------
+   | 定时任务
+   | 每分钟
+   | 每小时 某分
+   | 每天 某时:某分
+   | 每周-某天 某时:某分  0=周日
+   | 每月-某天 某时:某分
+   | 某月-某日 某时-某分
+   | 某年-某月-某日 某时-某分
+   |--------------------------------------------------------------------------
+   */
+//    'sys_crond_timer' => array('*', '*:i', 'H:i', '@-w H:i', '*-d H:i', 'm-d H:i', 'Y-m-d H:i'),
+    'sys_crond_timer' => array('*'),
+    'crond' => include_once("extra/crond.php"),
 ];
